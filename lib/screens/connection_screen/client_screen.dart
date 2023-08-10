@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 class ClientScreen extends StatefulWidget {
   const ClientScreen({super.key});
@@ -26,7 +27,9 @@ class _ClientScreenState extends State<ClientScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 20,),
+        const SizedBox(
+          height: 20,
+        ),
         Container(
           decoration: BoxDecoration(
             border: Border.all(
@@ -40,10 +43,27 @@ class _ClientScreenState extends State<ClientScreen> {
             key: _key,
             onQRViewCreated: (controller) {
               this.controller = controller;
+              this.controller?.scannedDataStream.listen((event) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(event.code.toString())));
+                IO.Socket socket = IO.io('${event.code}:3000');
+                socket.onConnect((_) async {
+                  await Future.delayed(const Duration(seconds: 1));
+                  socket.emit('msg', 'I am connected');
+                });
+                socket.on('msg', (data) async {
+                  await Future.delayed(const Duration(seconds: 1));
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(data.toString())));
+                });
+              });
             },
           ),
         ),
-        const Spacer(flex: 2,),
+        const Spacer(
+          flex: 2,
+        ),
       ],
     );
   }
