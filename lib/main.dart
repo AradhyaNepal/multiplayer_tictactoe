@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:multiplayer_tictactoe/screens/local_player_screen.dart';
+import 'package:multiplayer_tictactoe/screens/connection_screen/connection_screen.dart';
+import 'package:multiplayer_tictactoe/screens/connection_screen/server_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,7 +16,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const LocalPlayerScreen(),
+      home: const ConnectionScreen(),
     );
   }
 }
