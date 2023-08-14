@@ -93,13 +93,16 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
   }
 
   void makeMove(int row, int col, Handshake handshake) {
+    if((board[row][col] != '' || gameOver)){
+      _cancelTimer();
+      return;
+    }
     log("Make Move. Row: $row Column:$col Handshake:$handshake");
     if (handshake == Handshake.sendToOther) {
       canUnlock = () => board[row][col].isNotEmpty;
       handshakeLock = Timer(const Duration(milliseconds: 250), () {
         if (canUnlock()) {
-          handshakeLock?.cancel();
-          handshakeLock = null;
+          _cancelTimer();
         } else {
           log("Packet get lost, resending");
           makeMove(row, col, Handshake.sendToOther);
@@ -110,16 +113,18 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
       if (handshake == Handshake.otherPersonReceived) {
         widget.socket.add([row, col, Handshake.handshakeSuccess.index]);
       }
-      if (board[row][col] == '' && !gameOver) {
-        setState(() {
-          board[row][col] = currentPlayer;
-          checkWinner(row, col);
-          currentPlayer = switchZeroCross(currentPlayer);
-          handshakeLock?.cancel();
-          handshakeLock = null;
-        });
-      }
+      setState(() {
+        board[row][col] = currentPlayer;
+        checkWinner(row, col);
+        currentPlayer = switchZeroCross(currentPlayer);
+        _cancelTimer();
+      });
     }
+  }
+
+  void _cancelTimer() {
+     handshakeLock?.cancel();
+    handshakeLock = null;
   }
 
   String switchZeroCross(String value) {
