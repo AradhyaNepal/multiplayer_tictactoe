@@ -4,16 +4,36 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+//Its technical name might not be Handshake.
+///It ensure that whether the another device have also received the request.
 enum Handshake {
+  ///Send the request to other and wait them to send back handshakeSuccess.
+  ///The player who performs the action.
   sendToOther,
+  ///Player receives the request performed by some another user.
+  ///It performs the action on its own, then sends the another user success
   otherPersonReceived,
+  ///After a user performs an action, it send another user request to perform the same action
+  ///once the another user perform that action it sends back confirmation of handshakeSuccess.
+  ///If the user don't get handshakeSuccess after long wait it send to the another user request again.
+  ///The receiving user must make sure that same request could be send twice due to request lost on handshakeSuccess validation
+  ///because the sender don't know whether request is lost before otherPersonReceived, or after otherPersonReceived but before handshakeSuccess received
   handshakeSuccess,
 }
 
 enum OtherUserAction {
+  ///Game is finished, restart the game on both user's side
   restart,
+  ///One user goes back, so in another user's device too game must close
   giveUp,
 }
+// The current logic worked in this application but,
+// in another WebSocket practice application change the architecture,
+// Client sends request to server to perform a move,
+// all the logic are only is the server,
+// so server perform the move and inform the child with proper handshaking
+// right now both client and server are performing the same move.
+//Also in another project research pre build package for handshaking.
 
 class TicTacToeScreen extends StatefulWidget {
   final Socket socket;
@@ -97,7 +117,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
       _cancelTimer();
       return;
     }
-    log("Make Move. Row: $row Column:$col Handshake:$handshake");
+    log("Make Move. Row: $row Column:$col $handshake");
     if (handshake == Handshake.sendToOther) {
       canUnlock = () => board[row][col].isNotEmpty;
       handshakeLock = Timer(const Duration(milliseconds: 250), () {
