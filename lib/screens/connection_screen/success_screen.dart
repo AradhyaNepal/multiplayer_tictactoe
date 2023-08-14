@@ -1,8 +1,8 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:multiplayer_tictactoe/screens/connection_screen/connection_screen.dart';
 
 class SuccessScreen extends StatefulWidget {
   final Socket socket;
@@ -17,7 +17,6 @@ class SuccessScreen extends StatefulWidget {
 }
 
 class _SuccessScreenState extends State<SuccessScreen> {
-  Socket? client;
   String anotherUserMessage = "";
 
   @override
@@ -27,11 +26,11 @@ class _SuccessScreenState extends State<SuccessScreen> {
   }
 
   void _setup() async {
-    client?.listen((event) {
+    widget.socket.listen((event) {
+      log("Was here");
       anotherUserMessage = utf8.decode(event); //or String.fromCharCodes
       setState(() {});
     });
-    setState(() {});
   }
 
   @override
@@ -52,7 +51,8 @@ class _SuccessScreenState extends State<SuccessScreen> {
             TextField(
               onSubmitted: (value) {
                 if (value.isEmpty) return;
-                client?.add(utf8.encode(value));
+                log("Tries to add");
+               widget.socket.add(utf8.encode(value));
               },
             )
           ],
@@ -63,7 +63,7 @@ class _SuccessScreenState extends State<SuccessScreen> {
 
   @override
   void dispose() {
-    client?.close();
+    widget.socket.close();
     super.dispose();
   }
 }
