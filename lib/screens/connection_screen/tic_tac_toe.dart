@@ -1,7 +1,13 @@
+import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-
+enum Handshake{
+  sendToOther,
+  otherPersonReceived,
+  handshakeSuccess,
+}
 class TicTacToeScreen extends StatefulWidget {
   final Socket socket;
   final bool isServer;
@@ -16,11 +22,14 @@ class TicTacToeScreen extends StatefulWidget {
   _TicTacToeScreenState createState() => _TicTacToeScreenState();
 }
 
+typedef CanUnlock=bool Function();
 class _TicTacToeScreenState extends State<TicTacToeScreen> {
   String? whoAmI;
   late List<List<String>> board;
   late String currentPlayer;
   late bool gameOver;
+  Timer? handshakeLock;
+  CanUnlock canUnlock=()=>false;
 
   @override
   void initState() {
@@ -32,15 +41,21 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
   @override
   void dispose() {
     widget.socket.close();
+    handshakeLock?.cancel();
     super.dispose();
   }
 
   void _multiplayerSetup() async {
     widget.socket.listen((event) {
-      if(event.isEmpty){
+      if  (event case [var row,var col,var handshake]) {
+        if(handshake==Handshake.sendToOther.index){
+          makeMove(row, col, Handshake.otherPersonReceived);
+        }else if(handshake==Handshake.handshakeSuccess.index){
+          makeMove(row, col, Handshake.handshakeSuccess);
+        }
+      } else{
+
         startNewGame(fromInit: false);
-      }else{
-        makeMove(event[0], event[1]);
       }
     });
   }
@@ -53,26 +68,45 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
       if (fromInit) {
         whoAmI = widget.isServer ? 'X' : '0';
       } else {
-        whoAmI=switchZeroCross(whoAmI??'X');
+        whoAmI = switchZeroCross(whoAmI ?? 'X');
       }
       currentPlayer = 'X';
       gameOver = false;
     });
   }
 
-  void makeMove(int row, int col) {
-    widget.socket.add([row,col]);
-    if (board[row][col] == '' && !gameOver) {
-      setState(() {
-        board[row][col] = currentPlayer;
-        checkWinner(row, col);
-        currentPlayer = switchZeroCross(currentPlayer);
+  void makeMove(int row, int col,Handshake handshake) {
+    log("Make Move. Row: $row Column:$col Handshake:$handshake");
+    if(handshake==Handshake.sendToOther){
+      canUnlock=()=>board[row*3+col].isNotEmpty;
+      handshakeLock=Timer(const Duration(milliseconds: 250), () {
+        if(canUnlock()){
+          handshakeLock?.cancel();
+          handshakeLock=null;
+        }else{
+          log("Packet get lost, resending");
+          makeMove(row, col, Handshake.sendToOther);
+        }
       });
+      widget.socket.add([row,col,handshake.index]);
+    }else{
+     if(handshake==Handshake.otherPersonReceived){
+       widget.socket.add([row, col,Handshake.handshakeSuccess.index]);
+     }
+      if (board[row][col] == '' && !gameOver) {
+        setState(() {
+          board[row][col] = currentPlayer;
+          checkWinner(row, col);
+          currentPlayer = switchZeroCross(currentPlayer);
+          handshakeLock?.cancel();
+          handshakeLock=null;
+        });
+      }
     }
   }
 
-  String switchZeroCross(String value){
-    return value=='X'?'0':'X';
+  String switchZeroCross(String value) {
+    return value == 'X' ? '0' : 'X';
   }
 
   void checkWinner(int row, int col) {
@@ -116,10 +150,16 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
         gameOver = true;
       });
     }
+
+    if (gameOver == true) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("$currentPlayer Won the game!")));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tic Tac Toe'),
@@ -129,46 +169,56 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'You are ($whoAmI ${whoAmI==currentPlayer?"Your":"Opponent"}\'s Turn)',
+              'You are $whoAmI \n(${whoAmI == currentPlayer ? "Your" : "Opponent"}\'s Turn)',
+              textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 24),
             ),
             const SizedBox(height: 20),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                childAspectRatio: 1.0,
-                crossAxisSpacing: 4.0,
-                mainAxisSpacing: 4.0,
-              ),
-              itemCount: 9,
-              itemBuilder: (context, index) {
-                final row = index ~/ 3;
-                final col = index % 3;
-                return GestureDetector(
-                  onTap: () => makeMove(row, col),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 183, 233, 185),
-                      border: Border.all(color: Colors.black),
-                    ),
-                    child: Container(
-                      color: board[row][col] == 'X'
-                          ? Colors.amberAccent
-                          : (board[row][col] == "O")
-                              ? Colors.redAccent
-                              : const Color.fromARGB(255, 183, 233, 185),
-                      child: Center(
-                        child: Text(
-                          board[row][col],
-                          style: const TextStyle(fontSize: 40),
+            Expanded(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxHeight: 400,
+                  maxWidth: 400
+                ),
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: 1.0,
+                    crossAxisSpacing: 4.0,
+                    mainAxisSpacing: 4.0,
+                  ),
+                  itemCount: 9,
+                  itemBuilder: (context, index) {
+                    final row = index ~/ 3;
+                    final col = index % 3;
+                    return GestureDetector(
+                      onTap: () {
+                        if (currentPlayer != whoAmI || handshakeLock!=null) return;
+                        makeMove(row, col,Handshake.sendToOther);
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color.fromARGB(255, 183, 233, 185),
+                          border: Border.all(color: Colors.black),
+                        ),
+                        child: Container(
+                          color: board[row][col] == 'X'
+                              ? Colors.amberAccent
+                              : (board[row][col] == "O")
+                                  ? Colors.redAccent
+                                  : const Color.fromARGB(255, 183, 233, 185),
+                          child: Center(
+                            child: Text(
+                              board[row][col],
+                              style: const TextStyle(fontSize: 40),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                );
-              },
+                    );
+                  },
+                ),
+              ),
             ),
             const SizedBox(height: 20),
             if (gameOver) const Text("Start a new game!!"),
