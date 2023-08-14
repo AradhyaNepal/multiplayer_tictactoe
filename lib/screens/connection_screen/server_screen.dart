@@ -20,7 +20,7 @@ class _ServerScreenState extends State<ServerScreen> {
     super.initState();
     // Dart server
     getUrl().then((value) async {
-      socket = await ServerSocket.bind("0.0.0.0", 3000);
+      socket = await ServerSocket.bind(InternetAddress("0.0.0.0",type: InternetAddressType.IPv4), 3000);
       socket?.listen((newClient) {
         Navigator.push(
           context,

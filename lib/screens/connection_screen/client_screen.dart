@@ -18,7 +18,7 @@ class _ClientScreenState extends State<ClientScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)){
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
       return const Center(
         child: Text(
           "Device Unsupported",
@@ -64,7 +64,15 @@ class _ClientScreenState extends State<ClientScreen> {
                 try {
                   final url = event.code;
                   if (url == null) return;
-                  Socket socket = await Socket.connect(url, 3000);
+
+                  const port = 3000;
+                  final address=InternetAddress(url,type: InternetAddressType.IPv4);
+
+                  Socket socket = await Socket.connect(
+                    address,
+                    port,
+                    sourcePort: port,
+                  );
                   if (!mounted) return;
                   Navigator.push(
                     context,
