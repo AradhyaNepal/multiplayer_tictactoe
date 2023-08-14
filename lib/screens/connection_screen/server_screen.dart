@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:multiplayer_tictactoe/screens/connection_screen/success_screen.dart';
+import 'package:multiplayer_tictactoe/screens/connection_screen/tic_tac_toe.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -25,8 +25,9 @@ class _ServerScreenState extends State<ServerScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SuccessScreen(
+            builder: (context) => TicTacToeScreen(
               socket: newClient,
+              isServer: true,
             ),
           ),
         );
