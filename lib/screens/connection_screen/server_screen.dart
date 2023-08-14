@@ -12,15 +12,15 @@ class ServerScreen extends StatefulWidget {
 }
 
 class _ServerScreenState extends State<ServerScreen> {
-  String? ipToConnect;
+  String? urlToConnect;
   ServerSocket? socket;
 
   @override
   void initState() {
     super.initState();
     // Dart server
-    getIp().then((value) async {
-      socket = await ServerSocket.bind(ipToConnect, 3000);
+    getUrl().then((value) async {
+      socket = await ServerSocket.bind("0.0.0.0", 3000);
       socket?.listen((newClient) {
         Navigator.push(
           context,
@@ -35,10 +35,10 @@ class _ServerScreenState extends State<ServerScreen> {
     });
   }
 
-  Future<void> getIp() async {
+  Future<void> getUrl() async {
     try {
       NetworkInfo().getWifiIP().then((value) {
-        ipToConnect = value;
+        urlToConnect =value;
         setState(() {});
       });
     } catch (e) {
@@ -63,7 +63,7 @@ class _ServerScreenState extends State<ServerScreen> {
             );
           });
       if (value is String) {
-        ipToConnect = value;
+        urlToConnect = value;
         setState(() {});
       }
     }
@@ -75,10 +75,10 @@ class _ServerScreenState extends State<ServerScreen> {
         ? MediaQuery.of(context).size.width * 0.75
         : 500.0;
     return Center(
-      child: ipToConnect == null
+      child: urlToConnect == null
           ? const CircularProgressIndicator()
           : QrImageView(
-              data: ipToConnect ?? "",
+              data: urlToConnect ?? "",
               size: size,
             ),
     );
