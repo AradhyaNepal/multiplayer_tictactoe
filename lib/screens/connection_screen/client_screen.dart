@@ -1,6 +1,8 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:multiplayer_tictactoe/screens/connection_screen/success_screen.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 class ClientScreen extends StatefulWidget {
   const ClientScreen({super.key});
@@ -12,11 +14,20 @@ class ClientScreen extends StatefulWidget {
 class _ClientScreenState extends State<ClientScreen> {
   final GlobalKey _key = GlobalKey();
   QRViewController? controller;
-  bool loaded=false;
+  bool loaded = false;
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size.shortestSide<600?MediaQuery.of(context).size.width * 0.75: 500.0;
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)){
+      return const Center(
+        child: Text(
+          "Device Unsupported",
+        ),
+      );
+    }
+    final size = MediaQuery.of(context).size.shortestSide < 600
+        ? MediaQuery.of(context).size.width * 0.75
+        : 500.0;
     return Column(
       children: [
         const Spacer(),
@@ -44,25 +55,32 @@ class _ClientScreenState extends State<ClientScreen> {
             key: _key,
             onQRViewCreated: (controller) {
               this.controller = controller;
-              this.controller?.scannedDataStream.listen((event) {
-                if(loaded)return;
-                loaded=true;
-                Future.delayed(Duration(seconds: 1),(){
-                  loaded=false;
+              this.controller?.scannedDataStream.listen((event) async {
+                if (loaded) return;
+                loaded = true;
+                Future.delayed(const Duration(seconds: 2), () {
+                  loaded = false;
                 });
-                ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(event.code.toString())));
-                IO.Socket socket = IO.io('http://${event.code}:3000');
-                socket.onConnect((_) async {
-                  await Future.delayed(const Duration(seconds: 1));
-                  socket.emit('msg', 'I am connected');
-                });
-                socket.on('msg', (data) async {
-                  await Future.delayed(const Duration(seconds: 1));
+                try {
+                  final url = event.code;
+                  if (url == null) return;
+                  Socket socket = await Socket.connect(url, 3000);
                   if (!mounted) return;
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text(data.toString())));
-                });
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SuccessScreen(
+                        socket: socket,
+                      ),
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(e.toString()),
+                    ),
+                  );
+                }
               });
             },
           ),
