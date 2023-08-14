@@ -65,7 +65,7 @@ class _ClientScreenState extends State<ClientScreen> {
                   final url = event.code;
                   if (url == null) return;
 
-                  const port = 3000;
+                  const port = 3005;
                   final address=InternetAddress(url,type: InternetAddressType.IPv4);
 
                   Socket socket = await Socket.connect(
