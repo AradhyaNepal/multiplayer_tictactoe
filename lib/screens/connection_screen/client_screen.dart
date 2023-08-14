@@ -12,10 +12,11 @@ class ClientScreen extends StatefulWidget {
 class _ClientScreenState extends State<ClientScreen> {
   final GlobalKey _key = GlobalKey();
   QRViewController? controller;
+  bool loaded=false;
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size.width * 0.75;
+    final size = MediaQuery.of(context).size.shortestSide<600?MediaQuery.of(context).size.width * 0.75: 500.0;
     return Column(
       children: [
         const Spacer(),
@@ -44,9 +45,14 @@ class _ClientScreenState extends State<ClientScreen> {
             onQRViewCreated: (controller) {
               this.controller = controller;
               this.controller?.scannedDataStream.listen((event) {
+                if(loaded)return;
+                loaded=true;
+                Future.delayed(Duration(seconds: 1),(){
+                  loaded=false;
+                });
                 ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(event.code.toString())));
-                IO.Socket socket = IO.io('${event.code}:3000');
+                IO.Socket socket = IO.io('http://${event.code}:3000');
                 socket.onConnect((_) async {
                   await Future.delayed(const Duration(seconds: 1));
                   socket.emit('msg', 'I am connected');

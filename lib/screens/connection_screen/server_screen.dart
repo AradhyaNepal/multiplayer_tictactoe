@@ -12,31 +12,65 @@ class ServerScreen extends StatefulWidget {
 
 class _ServerScreenState extends State<ServerScreen> {
   String? ipToConnect;
-
+  late Server io;
   @override
   void initState() {
     super.initState();
     // Dart server
-    var io = Server();
-    io.on('connection', (client) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(client.toString())));
-      client.on('msg', (data) {
+    getIp().then((value) {
+      io= Server(server: 8000);
+
+      io.on('connection', (client) {
+        final socket=client as Socket;
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(client.toString())));
-        client.emit('msg', "Welcome");
+            SnackBar(content: Text(socket.data.toString())));
+        client.on('msg', (data) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(client.toString())));
+          client.emit('msg', "Welcome");
+        });
       });
+      io.listen("http://$ipToConnect:8000");
     });
-    io.listen(3000);
-    NetworkInfo().getWifiIP().then((value) {
-      ipToConnect = value;
-      setState(() {});
-    });
+
+
+
+
+  }
+
+  Future<void> getIp()async{
+    try{
+      NetworkInfo().getWifiIP().then((value) {
+        ipToConnect = value;
+        setState(() {});
+      });
+    }catch(e){
+      print("Was here");
+
+      final value=await showModalBottomSheet(context: context, builder: (context){
+        return Form(
+          child: TextField(
+            decoration: const InputDecoration(
+              hintText: "Enter Your device Ip"
+            ),
+            onSubmitted: (value){
+              Navigator.pop(context,value??"") ;
+            },
+          ),
+        );
+      });
+      if(value is String){
+        ipToConnect=value;
+        setState(() {
+
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size.width * 0.75;
+    final size = MediaQuery.of(context).size.shortestSide<600?MediaQuery.of(context).size.width * 0.75: 500.0;
     return Center(
       child: ipToConnect == null
           ? const CircularProgressIndicator()
@@ -45,5 +79,11 @@ class _ServerScreenState extends State<ServerScreen> {
         size: size,
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    io.close();
+    super.dispose();
   }
 }
