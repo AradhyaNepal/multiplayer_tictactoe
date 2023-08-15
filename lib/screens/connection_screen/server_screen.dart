@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:multiplayer_tictactoe/screens/connection_screen/tic_tac_toe.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -13,6 +14,8 @@ class ServerScreen extends StatefulWidget {
 }
 
 class _ServerScreenState extends State<ServerScreen> {
+  String appDriveLink =
+      "https://drive.google.com/drive/folders/1j2jfecUFIdPj8l5yBlbCEIjkxHZEPqk6?usp=sharing";
   String? ipAddress;
   ServerSocket? socket;
   final portController = TextEditingController();
@@ -44,7 +47,7 @@ class _ServerScreenState extends State<ServerScreen> {
   }
 
   Future<void> _startSocket() async {
-    try{
+    try {
       if (!validPort) {
         log("Invalid Port to start the socket");
         return;
@@ -76,15 +79,14 @@ class _ServerScreenState extends State<ServerScreen> {
       }).onDone(() {
         log("Previous Socket Closed");
       });
-    }catch(e,s){
+    } catch (e, s) {
       log(e.toString());
       log(s.toString());
       setState(() {
-        validPort=false;
+        validPort = false;
         _startingServer = false;
       });
     }
-
   }
 
   Future<void> getUrl() async {
@@ -131,7 +133,7 @@ class _ServerScreenState extends State<ServerScreen> {
         : SingleChildScrollView(
             child: Column(
               children: [
-                if (wifiName != null && wifiName!="")
+                if (wifiName != null && wifiName != "")
                   Row(
                     children: [
                       const Spacer(),
@@ -172,12 +174,49 @@ class _ServerScreenState extends State<ServerScreen> {
                 SizedBox(
                   height: size / 7,
                 ),
-                if (validPort)
+                if (validPort) ...[
                   QrImageView(
                     data: "$ipAddress--${portController.text}",
                     size: size,
-                  )
-                else
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      showModalBottomSheet(
+                          context: context,
+                          builder: (context) {
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                top: 30,
+                              ),
+                              child: QrImageView(
+                                data: appDriveLink,
+                                size: size,
+                              ),
+                            );
+                          });
+                    },
+                    child: const Text("Share App with QR"),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: appDriveLink));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "Copied to Clipboard",
+                          ),
+                        ),
+                      );
+                    },
+                    icon: Icon(
+                      Icons.copy,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ] else
                   const Center(
                     child: Text("Invalid Port"),
                   ),
