@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:multiplayer_tictactoe/screens/connection_screen/client_screen.dart';
-import 'package:multiplayer_tictactoe/screens/connection_screen/server_screen.dart';
+import 'package:multiplayer_tictactoe/client_screen.dart';
+import 'package:multiplayer_tictactoe/server_screen.dart';
 
 class ConnectionScreen extends StatefulWidget {
   const ConnectionScreen({super.key});

@@ -3,40 +3,17 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:multiplayer_tictactoe/enums.dart';
 
-//Its technical name might not be Handshake.
-///It ensure that whether the another device have also received the request.
-enum Handshake {
-  ///Send the request to other and wait them to send back handshakeSuccess.
-  ///The player who performs the action.
-  sendToOther,
+import 'custom_dialog.dart';
 
-  ///Player receives the request performed by some another user.
-  ///It performs the action on its own, then sends the another user success
-  otherPersonReceived,
-
-  ///After a user performs an action, it send another user request to perform the same action
-  ///once the another user perform that action it sends back confirmation of handshakeSuccess.
-  ///If the user don't get handshakeSuccess after long wait it send to the another user request again.
-  ///The receiving user must make sure that same request could be send twice due to request lost on handshakeSuccess validation
-  ///because the sender don't know whether request is lost before otherPersonReceived, or after otherPersonReceived but before handshakeSuccess received
-  handshakeSuccess,
-}
-
-enum RestartGameRequest {
-  send,
-  received,
-  bothConfirmed,
-  rejected,
-}
 // The current logic worked in this application but,
 // in another WebSocket practice application change the architecture,
 // Client sends request to server to perform a move,
 // all the logic are only is the server,
 // so server perform the move and inform the child with proper handshaking
 // right now both client and server are performing the same move.
-//Also in another project research pre build package for handshaking.
-
+// Also in another project research pre build package for handshaking.
 class TicTacToeScreen extends StatefulWidget {
   final Socket socket;
   final bool isServer;
@@ -48,18 +25,19 @@ class TicTacToeScreen extends StatefulWidget {
   });
 
   @override
-  _TicTacToeScreenState createState() => _TicTacToeScreenState();
+  State<TicTacToeScreen> createState() => _TicTacToeScreenState();
 }
 
 typedef CanUnlock = bool Function();
 
 class _TicTacToeScreenState extends State<TicTacToeScreen> {
-  String? whoAmI;
-  late List<List<String>> board;
-  String currentPlayer = "X";
-  bool gameOver = false;
-  Timer? handshakeLock;
-  CanUnlock canUnlock = () => false;
+  bool _waitingForAnotherUser = false;
+  String? _whoAmI;
+  late List<List<String>> _board;
+  String _currentPlayer = "X";
+  bool _gameOver = false;
+  Timer? _handshakeLock;
+  CanUnlock _canUnlock = () => false;
 
   @override
   void initState() {
@@ -71,7 +49,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
   @override
   void dispose() {
     widget.socket.destroy();
-    handshakeLock?.cancel();
+    _handshakeLock?.cancel();
     super.dispose();
   }
 
@@ -95,40 +73,24 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
     });
   }
 
-  bool waitingForAnotherUser = false;
-
+  ///Restart game null means its called from init
   void startNewGame({required int? restartGame}) async {
     _clearBoard();
     if (restartGame == null) {
-      whoAmI = widget.isServer ? 'X' : '0';
+      _whoAmI = widget.isServer ? 'X' : '0';
     } else if (restartGame == RestartGameRequest.send.index) {
       log("Sending another player request to start the game");
-      waitingForAnotherUser = true;
+      _waitingForAnotherUser = true;
       widget.socket.add([RestartGameRequest.received.index]);
       setState(() {});
     } else if (restartGame == RestartGameRequest.received.index) {
-      log("Restart game request received");
-      if (!gameOver) {
-        _gameStartConfirmation();
-        return;
-      }
-      final value = await showDialog(
-        context: context,
-        builder: (context) {
-          return const PlayAgainDialog();
-        },
-      );
-      if (value == true) {
-        _gameStartConfirmation();
-      } else {
-        widget.socket.add([RestartGameRequest.rejected.index]);
-      }
+      _performRestartReceivedAction();
     } else if (restartGame == RestartGameRequest.bothConfirmed.index) {
-      waitingForAnotherUser = false;
+      _waitingForAnotherUser = false;
       log("Another player accepted your request, you can now start playing");
       _startingTheGame();
     } else if (restartGame == RestartGameRequest.rejected.index) {
-      waitingForAnotherUser = false;
+      _waitingForAnotherUser = false;
       log("Another player rejected you");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -141,35 +103,58 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
     }
   }
 
+  void _performRestartReceivedAction() async {
+    log("Restart game request received");
+    if (!_gameOver) {
+      _gameStartConfirmation();
+      return;
+    }
+    final value = await showDialog(
+      context: context,
+      builder: (context) {
+        return const CustomDialog(
+          title: "Play Again",
+          content: "Do you want to play again!",
+          no: "I need rest.",
+        );
+      },
+    );
+    if (value == true) {
+      _gameStartConfirmation();
+    } else {
+      widget.socket.add([RestartGameRequest.rejected.index]);
+    }
+  }
+
   void _gameStartConfirmation() {
     widget.socket.add([RestartGameRequest.bothConfirmed.index]);
     _startingTheGame();
   }
 
   void _startingTheGame() {
-    if (gameOver) {
-      whoAmI = switchZeroCross(whoAmI ?? 'X');
+    if (_gameOver) {
+      _whoAmI = switchZeroCross(_whoAmI ?? 'X');
     }
-    currentPlayer = 'X';
+    _currentPlayer = 'X';
     _clearBoard();
-    gameOver = false;
+    _gameOver = false;
     setState(() {});
   }
 
   void _clearBoard() {
-    board = List<List<String>>.generate(3, (_) => List<String>.filled(3, ''));
+    _board = List<List<String>>.generate(3, (_) => List<String>.filled(3, ''));
   }
 
   void makeMove(int row, int col, Handshake handshake) {
-    if ((board[row][col] != '' || gameOver)) {
+    if ((_board[row][col] != '' || _gameOver)) {
       _cancelTimer();
       return;
     }
     log("Make Move. Row: $row Column:$col $handshake");
     if (handshake == Handshake.sendToOther) {
-      canUnlock = () => board[row][col].isNotEmpty;
-      handshakeLock = Timer(const Duration(milliseconds: 250), () {
-        if (canUnlock()) {
+      _canUnlock = () => _board[row][col].isNotEmpty;
+      _handshakeLock = Timer(const Duration(milliseconds: 250), () {
+        if (_canUnlock()) {
           _cancelTimer();
         } else {
           log("Packet get lost, resending");
@@ -182,17 +167,17 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
         widget.socket.add([row, col, Handshake.handshakeSuccess.index]);
       }
       setState(() {
-        board[row][col] = currentPlayer;
+        _board[row][col] = _currentPlayer;
         checkWinner(row, col);
-        currentPlayer = switchZeroCross(currentPlayer);
+        _currentPlayer = switchZeroCross(_currentPlayer);
         _cancelTimer();
       });
     }
   }
 
   void _cancelTimer() {
-    handshakeLock?.cancel();
-    handshakeLock = null;
+    _handshakeLock?.cancel();
+    _handshakeLock = null;
   }
 
   String switchZeroCross(String value) {
@@ -201,51 +186,52 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
 
   void checkWinner(int row, int col) {
     // Check row
-    if (board[row][0] == board[row][1] &&
-        board[row][1] == board[row][2] &&
-        board[row][0] != '') {
+    if (_board[row][0] == _board[row][1] &&
+        _board[row][1] == _board[row][2] &&
+        _board[row][0] != '') {
       setState(() {
-        gameOver = true;
+        _gameOver = true;
       });
     }
 
     // Check column
-    if (board[0][col] == board[1][col] &&
-        board[1][col] == board[2][col] &&
-        board[0][col] != '') {
+    if (_board[0][col] == _board[1][col] &&
+        _board[1][col] == _board[2][col] &&
+        _board[0][col] != '') {
       setState(() {
-        gameOver = true;
+        _gameOver = true;
       });
     }
 
     // Check diagonal
-    if (board[0][0] == board[1][1] &&
-        board[1][1] == board[2][2] &&
-        board[0][0] != '') {
+    if (_board[0][0] == _board[1][1] &&
+        _board[1][1] == _board[2][2] &&
+        _board[0][0] != '') {
       setState(() {
-        gameOver = true;
+        _gameOver = true;
       });
     }
-    if (board[0][2] == board[1][1] &&
-        board[1][1] == board[2][0] &&
-        board[0][2] != '') {
+    if (_board[0][2] == _board[1][1] &&
+        _board[1][1] == _board[2][0] &&
+        _board[0][2] != '') {
       setState(() {
-        gameOver = true;
+        _gameOver = true;
       });
     }
 
     bool isTie = false;
     // Check for a tie
-    if (!board.any((row) => row.any((cell) => cell == '')) && !gameOver) {
+    if (!_board.any((row) => row.any((cell) => cell == '')) && !_gameOver) {
       setState(() {
-        gameOver = true;
+        _gameOver = true;
         isTie = true;
       });
     }
 
-    if (gameOver && !isTie) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("${currentPlayer==whoAmI?"You":"Opponent"} won the game!")));
+    if (_gameOver && !isTie) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              "${_currentPlayer == _whoAmI ? "You" : "Opponent"} won the game!")));
     }
   }
 
@@ -256,7 +242,11 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
         final value = await showDialog(
             context: context,
             builder: (context) {
-              return const GiveUpDialog();
+              return const CustomDialog(
+                title: "Give Up!",
+                content:
+                    "Are you okay if your friends mock you for a guy who easily give up?",
+              );
             });
         if (value == true) {
           if (!mounted) return Future.value(false);
@@ -272,9 +262,9 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (!gameOver) ...[
+              if (!_gameOver) ...[
                 Text(
-                  'You are $whoAmI \n(${whoAmI == currentPlayer ? "Your" : "Opponent"}\'s Turn)',
+                  'You are $_whoAmI \n(${_whoAmI == _currentPlayer ? "Your" : "Opponent"}\'s Turn)',
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 24),
                 ),
@@ -297,9 +287,9 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                         final col = index % 3;
                         return GestureDetector(
                           onTap: () {
-                            if (currentPlayer != whoAmI ||
-                                handshakeLock != null ||
-                                gameOver) return;
+                            if (_currentPlayer != _whoAmI ||
+                                _handshakeLock != null ||
+                                _gameOver) return;
                             makeMove(row, col, Handshake.sendToOther);
                           },
                           child: Container(
@@ -308,15 +298,15 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                               border: Border.all(color: Colors.black),
                             ),
                             child: Container(
-                              color: board[row][col] == 'X'
+                              color: _board[row][col] == 'X'
                                   ? Colors.amberAccent
-                                  : (board[row][col] == "O")
+                                  : (_board[row][col] == "O")
                                       ? Colors.redAccent
                                       : const Color.fromARGB(
                                           255, 183, 233, 185),
                               child: Center(
                                 child: Text(
-                                  board[row][col],
+                                  _board[row][col],
                                   style: const TextStyle(fontSize: 40),
                                 ),
                               ),
@@ -338,13 +328,13 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                 ),
                 const SizedBox(height: 10),
                 ElevatedButton(
-                  onPressed: waitingForAnotherUser
+                  onPressed: _waitingForAnotherUser
                       ? null
                       : () {
                           startNewGame(
                               restartGame: RestartGameRequest.send.index);
                         },
-                  child: Text(waitingForAnotherUser
+                  child: Text(_waitingForAnotherUser
                       ? "Waiting For Another Player"
                       : 'Start New Game'),
                 ),
@@ -356,61 +346,6 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class PlayAgainDialog extends StatelessWidget {
-  const PlayAgainDialog({
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text("Play Again"),
-      content: const Text("Do you want to play again?"),
-      actions: [
-        TextButton(
-            onPressed: () {
-              Navigator.pop(context, true);
-            },
-            child: const Text("Yah!")),
-        TextButton(
-            onPressed: () {
-              Navigator.pop(context, false);
-            },
-            child: const Text("No! I need rest.")),
-      ],
-    );
-  }
-}
-
-class GiveUpDialog extends StatelessWidget {
-  const GiveUpDialog({
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text("Give Up!"),
-      content: const Text(
-          "Are you okay if your friends mock you for a guy who easily give up?"),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context, true);
-          },
-          child: const Text("Yes"),
-        ),
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context, false);
-          },
-          child: const Text("No"),
-        ),
-      ],
     );
   }
 }

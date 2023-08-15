@@ -2,7 +2,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:multiplayer_tictactoe/screens/connection_screen/tic_tac_toe.dart';
+import 'package:multiplayer_tictactoe/tic_tac_toe.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
 
 class ClientScreen extends StatefulWidget {

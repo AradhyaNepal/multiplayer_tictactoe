@@ -2,7 +2,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:multiplayer_tictactoe/screens/connection_screen/tic_tac_toe.dart';
+import 'package:multiplayer_tictactoe/tic_tac_toe.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 

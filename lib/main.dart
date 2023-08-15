@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:multiplayer_tictactoe/screens/connection_screen/connection_screen.dart';
+import 'package:multiplayer_tictactoe/connection_screen.dart';
 
 void main() {
   runApp(const MyApp());
