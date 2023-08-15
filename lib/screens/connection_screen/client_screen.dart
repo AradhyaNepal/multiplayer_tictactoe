@@ -26,78 +26,88 @@ class _ClientScreenState extends State<ClientScreen> {
         ),
       );
     }
-    final size = MediaQuery.of(context).size.shortestSide < 600
-        ? MediaQuery.of(context).size.width * 0.75
-        : 500.0;
-    return Column(
-      children: [
-        const Spacer(),
-        const Text(
-          "Scan QR",
-          style: TextStyle(
-            fontSize: 40,
-            color: Colors.red,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(
-          height: 20,
-        ),
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: Colors.red,
-              width: 10,
+    final size=MediaQuery.of(context).size;
+    final scannerSize = size.width * 0.6;
+    return SizedBox(
+      height:size.height,
+      width: size.width,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: QRView(
+              key: _key,
+              onQRViewCreated: (controller) {
+                this.controller = controller;
+                this.controller?.scannedDataStream.listen((event) async {
+                  if (loaded) return;
+                  loaded = true;
+                  Future.delayed(const Duration(seconds: 2), () {
+                    loaded = false;
+                  });
+                  try {
+                    final data = event.code;
+                    if (data == null) return;
+                    log("Url To Connect $data");
+                    final [url,port]=data.split("--");
+                    final address=InternetAddress(url,type: InternetAddressType.IPv4);
+
+                    Socket socket = await Socket.connect(
+                      address,
+                      int.parse(port),
+                    );
+                    if (!mounted) return;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => TicTacToeScreen(
+                          socket: socket,
+                          isServer: false,
+                        ),
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(e.toString()),
+                      ),
+                    );
+                  }
+                });
+              },
             ),
           ),
-          height: size,
-          width: size,
-          child: QRView(
-            key: _key,
-            onQRViewCreated: (controller) {
-              this.controller = controller;
-              this.controller?.scannedDataStream.listen((event) async {
-                if (loaded) return;
-                loaded = true;
-                Future.delayed(const Duration(seconds: 2), () {
-                  loaded = false;
-                });
-                try {
-                  final data = event.code;
-                  if (data == null) return;
-                  log("Url To Connect $data");
-                  final [url,port]=data.split("--");
-                  final address=InternetAddress(url,type: InternetAddressType.IPv4);
-
-                  Socket socket = await Socket.connect(
-                    address,
-                    int.parse(port),
-                  );
-                  if (!mounted) return;
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => TicTacToeScreen(
-                        socket: socket,
-                        isServer: false,
-                      ),
+          Positioned.fill(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text(
+                  "Scan QR",
+                  style: TextStyle(
+                    fontSize: 40,
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(
+                  height: 20,
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    border: Border.all(
+                      color: Colors.red,
+                      width: 10,
                     ),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(e.toString()),
-                    ),
-                  );
-                }
-              });
-            },
+                  ),
+                  height: scannerSize,
+                  width: scannerSize,
+                ),
+              ],
+            ),
           ),
-        ),
-        const Spacer(
-          flex: 2,
-        ),
-      ],
+        ],
+      ),
     );
   }
 

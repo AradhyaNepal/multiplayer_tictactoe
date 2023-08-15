@@ -115,11 +115,10 @@ class _ServerScreenState extends State<ServerScreen> {
     final size = MediaQuery.of(context).size.shortestSide < 600
         ? MediaQuery.of(context).size.width * 0.75
         : 500.0;
-    return Center(
-      child: urlToConnect == null || _startingServer
-          ? const CircularProgressIndicator()
-          : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+    return urlToConnect == null || _startingServer
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+          child: Column(
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -144,9 +143,7 @@ class _ServerScreenState extends State<ServerScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(
-                  height: 20,
-                ),
+                SizedBox(height: size/5,),
                 if (validPort)
                   QrImageView(
                     data: "$urlToConnect--${portController.text}",
@@ -158,7 +155,7 @@ class _ServerScreenState extends State<ServerScreen> {
                   ),
               ],
             ),
-    );
+        );
   }
 
   @override
