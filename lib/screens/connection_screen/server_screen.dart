@@ -13,11 +13,12 @@ class ServerScreen extends StatefulWidget {
 }
 
 class _ServerScreenState extends State<ServerScreen> {
-  String? urlToConnect;
+  String? ipAddress;
   ServerSocket? socket;
   final portController = TextEditingController();
   bool validPort = true;
   bool _startingServer = true;
+  String? wifiName;
 
   @override
   void initState() {
@@ -43,45 +44,55 @@ class _ServerScreenState extends State<ServerScreen> {
   }
 
   Future<void> _startSocket() async {
-    if (!validPort) {
-      log("Invalid Port to start the socket");
-      return;
-    }
-    await Future.delayed(Duration.zero, () {
-      _startingServer = true;
-      setState(() {});
-    });
-    await socket?.close();
-    log("Starting Socket");
-    socket = await ServerSocket.bind(
-        InternetAddress("0.0.0.0", type: InternetAddressType.IPv4),
-        int.parse(portController.text));
-    log("Socket Started");
+    try{
+      if (!validPort) {
+        log("Invalid Port to start the socket");
+        return;
+      }
+      await Future.delayed(Duration.zero, () {
+        _startingServer = true;
+        setState(() {});
+      });
+      await socket?.close();
+      log("Starting Socket");
+      socket = await ServerSocket.bind(
+          InternetAddress("0.0.0.0", type: InternetAddressType.IPv4),
+          int.parse(portController.text));
+      log("Socket Started");
 
-    setState(() {
-      _startingServer = false;
-    });
-    socket?.listen((newClient) async {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => TicTacToeScreen(
-            socket: newClient,
-            isServer: true,
+      setState(() {
+        _startingServer = false;
+      });
+      socket?.listen((newClient) async {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TicTacToeScreen(
+              socket: newClient,
+              isServer: true,
+            ),
           ),
-        ),
-      );
-    }).onDone(() {
-      log("Previous Socket Closed");
-    });
+        );
+      }).onDone(() {
+        log("Previous Socket Closed");
+      });
+    }catch(e,s){
+      log(e.toString());
+      log(s.toString());
+      setState(() {
+        validPort=false;
+        _startingServer = false;
+      });
+    }
+
   }
 
   Future<void> getUrl() async {
     try {
-      NetworkInfo().getWifiIP().then((value) {
-        urlToConnect = value;
-        setState(() {});
-      });
+      final networkInfo = NetworkInfo();
+      ipAddress = await networkInfo.getWifiIP();
+      wifiName = await networkInfo.getWifiName();
+      setState(() {});
     } catch (e) {
       await Future.delayed(Duration.zero);
       if (!mounted) return;
@@ -104,7 +115,7 @@ class _ServerScreenState extends State<ServerScreen> {
             );
           });
       if (value is String) {
-        urlToConnect = value;
+        ipAddress = value;
         setState(() {});
       }
     }
@@ -115,11 +126,26 @@ class _ServerScreenState extends State<ServerScreen> {
     final size = MediaQuery.of(context).size.shortestSide < 600
         ? MediaQuery.of(context).size.width * 0.75
         : 500.0;
-    return urlToConnect == null || _startingServer
+    return ipAddress == null || _startingServer
         ? const Center(child: CircularProgressIndicator())
         : SingleChildScrollView(
-          child: Column(
+            child: Column(
               children: [
+                if (wifiName != null && wifiName!="")
+                  Row(
+                    children: [
+                      const Spacer(),
+                      Text(
+                        "Wifi required to connect the QR:\n$wifiName",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -143,10 +169,12 @@ class _ServerScreenState extends State<ServerScreen> {
                     ),
                   ],
                 ),
-                SizedBox(height: size/5,),
+                SizedBox(
+                  height: size / 7,
+                ),
                 if (validPort)
                   QrImageView(
-                    data: "$urlToConnect--${portController.text}",
+                    data: "$ipAddress--${portController.text}",
                     size: size,
                   )
                 else
@@ -155,7 +183,7 @@ class _ServerScreenState extends State<ServerScreen> {
                   ),
               ],
             ),
-        );
+          );
   }
 
   @override

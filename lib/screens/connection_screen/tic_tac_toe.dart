@@ -23,11 +23,11 @@ enum Handshake {
   handshakeSuccess,
 }
 
-enum OtherUserAction {
-  ///Game is finished, restart the game on both user's side
-  restartRequest,
-
-  restartConfirm,
+enum RestartGameRequest {
+  send,
+  received,
+  bothConfirmed,
+  rejected,
 }
 // The current logic worked in this application but,
 // in another WebSocket practice application change the architecture,
@@ -56,8 +56,8 @@ typedef CanUnlock = bool Function();
 class _TicTacToeScreenState extends State<TicTacToeScreen> {
   String? whoAmI;
   late List<List<String>> board;
-  late String currentPlayer;
-  late bool gameOver;
+  String currentPlayer = "X";
+  bool gameOver = false;
   Timer? handshakeLock;
   CanUnlock canUnlock = () => false;
 
@@ -65,7 +65,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
   void initState() {
     super.initState();
     _multiplayerSetup();
-    startNewGame(fromInit: true, fromAnotherUser: false);
+    startNewGame(restartGame: null);
   }
 
   @override
@@ -84,37 +84,80 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
         } else if (handshake == Handshake.handshakeSuccess.index) {
           makeMove(row, col, Handshake.handshakeSuccess);
         }
-      } else if (event case [var otherUserAction]) {
-        if (otherUserAction == OtherUserAction.restartRequest.index) {
-          startNewGame(fromInit: false, fromAnotherUser: true);
-        } else {
-          //Todo: Restart 2 way communication
-          log("Restart 2 way communication");
-        }
+      } else if (event case [var restartGame]) {
+        startNewGame(restartGame: restartGame);
       }
     }).onDone(() {
-      if(!context.mounted)return;
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Another Player gave up")));
       Navigator.pop(context);
     });
   }
 
-  void startNewGame(
-      {required bool fromInit, required bool fromAnotherUser}) async {
-    setState(() {
-      board = List<List<String>>.generate(3, (_) => List<String>.filled(3, ''));
-      if (fromInit) {
-        whoAmI = widget.isServer ? 'X' : '0';
+  bool waitingForAnotherUser = false;
+
+  void startNewGame({required int? restartGame}) async {
+    _clearBoard();
+    if (restartGame == null) {
+      whoAmI = widget.isServer ? 'X' : '0';
+    } else if (restartGame == RestartGameRequest.send.index) {
+      log("Sending another player request to start the game");
+      waitingForAnotherUser = true;
+      widget.socket.add([RestartGameRequest.received.index]);
+      setState(() {});
+    } else if (restartGame == RestartGameRequest.received.index) {
+      log("Restart game request received");
+      if (!gameOver) {
+        _gameStartConfirmation();
+        return;
+      }
+      final value = await showDialog(
+        context: context,
+        builder: (context) {
+          return const PlayAgainDialog();
+        },
+      );
+      if (value == true) {
+        _gameStartConfirmation();
       } else {
-        whoAmI = switchZeroCross(whoAmI ?? 'X');
+        widget.socket.add([RestartGameRequest.rejected.index]);
       }
-      if (!fromAnotherUser && !fromInit) {
-        widget.socket.add([OtherUserAction.restartRequest.index]);
-      }
-      currentPlayer = 'X';
-      gameOver = false;
-    });
+    } else if (restartGame == RestartGameRequest.bothConfirmed.index) {
+      waitingForAnotherUser = false;
+      log("Another player accepted your request, you can now start playing");
+      _startingTheGame();
+    } else if (restartGame == RestartGameRequest.rejected.index) {
+      waitingForAnotherUser = false;
+      log("Another player rejected you");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Another player rejected you",
+          ),
+        ),
+      );
+      setState(() {});
+    }
+  }
+
+  void _gameStartConfirmation() {
+    widget.socket.add([RestartGameRequest.bothConfirmed.index]);
+    _startingTheGame();
+  }
+
+  void _startingTheGame() {
+    if (!gameOver) {
+      whoAmI = switchZeroCross(whoAmI ?? 'X');
+    }
+    currentPlayer = 'X';
+    _clearBoard();
+    gameOver = false;
+    setState(() {});
+  }
+
+  void _clearBoard() {
+    board = List<List<String>>.generate(3, (_) => List<String>.filled(3, ''));
   }
 
   void makeMove(int row, int col, Handshake handshake) {
@@ -229,72 +272,116 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                'You are $whoAmI \n(${whoAmI == currentPlayer ? "Your" : "Opponent"}\'s Turn)',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 24),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: ConstrainedBox(
-                  constraints:
-                      const BoxConstraints(maxHeight: 400, maxWidth: 400),
-                  child: GridView.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      childAspectRatio: 1.0,
-                      crossAxisSpacing: 4.0,
-                      mainAxisSpacing: 4.0,
-                    ),
-                    itemCount: 9,
-                    itemBuilder: (context, index) {
-                      final row = index ~/ 3;
-                      final col = index % 3;
-                      return GestureDetector(
-                        onTap: () {
-                          if (currentPlayer != whoAmI ||
-                              handshakeLock != null ||
-                              gameOver) return;
-                          makeMove(row, col, Handshake.sendToOther);
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color.fromARGB(255, 183, 233, 185),
-                            border: Border.all(color: Colors.black),
-                          ),
+              if (!gameOver) ...[
+                Text(
+                  'You are $whoAmI \n(${whoAmI == currentPlayer ? "Your" : "Opponent"}\'s Turn)',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 24),
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: ConstrainedBox(
+                    constraints:
+                        const BoxConstraints(maxHeight: 400, maxWidth: 400),
+                    child: GridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        childAspectRatio: 1.0,
+                        crossAxisSpacing: 4.0,
+                        mainAxisSpacing: 4.0,
+                      ),
+                      itemCount: 9,
+                      itemBuilder: (context, index) {
+                        final row = index ~/ 3;
+                        final col = index % 3;
+                        return GestureDetector(
+                          onTap: () {
+                            if (currentPlayer != whoAmI ||
+                                handshakeLock != null ||
+                                gameOver) return;
+                            makeMove(row, col, Handshake.sendToOther);
+                          },
                           child: Container(
-                            color: board[row][col] == 'X'
-                                ? Colors.amberAccent
-                                : (board[row][col] == "O")
-                                    ? Colors.redAccent
-                                    : const Color.fromARGB(255, 183, 233, 185),
-                            child: Center(
-                              child: Text(
-                                board[row][col],
-                                style: const TextStyle(fontSize: 40),
+                            decoration: BoxDecoration(
+                              color: const Color.fromARGB(255, 183, 233, 185),
+                              border: Border.all(color: Colors.black),
+                            ),
+                            child: Container(
+                              color: board[row][col] == 'X'
+                                  ? Colors.amberAccent
+                                  : (board[row][col] == "O")
+                                      ? Colors.redAccent
+                                      : const Color.fromARGB(
+                                          255, 183, 233, 185),
+                              child: Center(
+                                child: Text(
+                                  board[row][col],
+                                  style: const TextStyle(fontSize: 40),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              if (gameOver) const Text("Start a new game!!"),
-              if (gameOver)
-                ElevatedButton(
-                  onPressed: () {
-                    startNewGame(fromInit: false, fromAnotherUser: false);
-                  },
-                  child: const Text('New Game'),
+              ] else ...[
+                const Text(
+                  "Game Over!",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 30,
+                  ),
                 ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: waitingForAnotherUser
+                      ? null
+                      : () {
+                          startNewGame(
+                              restartGame: RestartGameRequest.send.index);
+                        },
+                  child: Text(waitingForAnotherUser
+                      ? "Waiting For Another Player"
+                      : 'Start New Game'),
+                ),
+                const SizedBox(
+                  height: 20,
+                ),
+              ]
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class PlayAgainDialog extends StatelessWidget {
+  const PlayAgainDialog({
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Play Again"),
+      content: const Text("Do you want to play again?"),
+      actions: [
+        TextButton(
+            onPressed: () {
+              Navigator.pop(context, true);
+            },
+            child: const Text("Yah!")),
+        TextButton(
+            onPressed: () {
+              Navigator.pop(context, false);
+            },
+            child: const Text("No! I need rest.")),
+      ],
     );
   }
 }
