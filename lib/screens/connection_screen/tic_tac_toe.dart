@@ -147,7 +147,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
   }
 
   void _startingTheGame() {
-    if (!gameOver) {
+    if (gameOver) {
       whoAmI = switchZeroCross(whoAmI ?? 'X');
     }
     currentPlayer = 'X';
@@ -245,7 +245,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
 
     if (gameOver && !isTie) {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("$currentPlayer Won the game!")));
+          SnackBar(content: Text("${currentPlayer==whoAmI?"You":"Opponent"} won the game!")));
     }
   }
 
