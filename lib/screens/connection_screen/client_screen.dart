@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -62,16 +63,15 @@ class _ClientScreenState extends State<ClientScreen> {
                   loaded = false;
                 });
                 try {
-                  final url = event.code;
-                  if (url == null) return;
-
-                  const port = 3005;
+                  final data = event.code;
+                  if (data == null) return;
+                  log("Url To Connect $data");
+                  final [url,port]=data.split("--");
                   final address=InternetAddress(url,type: InternetAddressType.IPv4);
 
                   Socket socket = await Socket.connect(
                     address,
-                    port,
-                    sourcePort: port,
+                    int.parse(port),
                   );
                   if (!mounted) return;
                   Navigator.push(

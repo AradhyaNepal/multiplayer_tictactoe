@@ -10,9 +10,11 @@ enum Handshake {
   ///Send the request to other and wait them to send back handshakeSuccess.
   ///The player who performs the action.
   sendToOther,
+
   ///Player receives the request performed by some another user.
   ///It performs the action on its own, then sends the another user success
   otherPersonReceived,
+
   ///After a user performs an action, it send another user request to perform the same action
   ///once the another user perform that action it sends back confirmation of handshakeSuccess.
   ///If the user don't get handshakeSuccess after long wait it send to the another user request again.
@@ -23,9 +25,9 @@ enum Handshake {
 
 enum OtherUserAction {
   ///Game is finished, restart the game on both user's side
-  restart,
-  ///One user goes back, so in another user's device too game must close
-  giveUp,
+  restartRequest,
+
+  restartConfirm,
 }
 // The current logic worked in this application but,
 // in another WebSocket practice application change the architecture,
@@ -63,12 +65,12 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
   void initState() {
     super.initState();
     _multiplayerSetup();
-    startNewGame(fromInit: true,fromAnotherUser: false);
+    startNewGame(fromInit: true, fromAnotherUser: false);
   }
 
   @override
   void dispose() {
-    widget.socket.close();
+    widget.socket.destroy();
     handshakeLock?.cancel();
     super.dispose();
   }
@@ -83,19 +85,23 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
           makeMove(row, col, Handshake.handshakeSuccess);
         }
       } else if (event case [var otherUserAction]) {
-        if (otherUserAction == OtherUserAction.restart.index) {
-          startNewGame(fromInit: false,fromAnotherUser: true);
+        if (otherUserAction == OtherUserAction.restartRequest.index) {
+          startNewGame(fromInit: false, fromAnotherUser: true);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Another Player gave up")));
-          Navigator.pop(context);
+          //Todo: Restart 2 way communication
+          log("Restart 2 way communication");
         }
       }
+    }).onDone(() {
+      if(!context.mounted)return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Another Player gave up")));
+      Navigator.pop(context);
     });
   }
 
-  void startNewGame({required bool fromInit,required bool fromAnotherUser}) async{
-
+  void startNewGame(
+      {required bool fromInit, required bool fromAnotherUser}) async {
     setState(() {
       board = List<List<String>>.generate(3, (_) => List<String>.filled(3, ''));
       if (fromInit) {
@@ -103,17 +109,16 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
       } else {
         whoAmI = switchZeroCross(whoAmI ?? 'X');
       }
-      if(!fromAnotherUser && !fromInit){
-        widget.socket.add([OtherUserAction.restart.index]);
+      if (!fromAnotherUser && !fromInit) {
+        widget.socket.add([OtherUserAction.restartRequest.index]);
       }
       currentPlayer = 'X';
       gameOver = false;
-
     });
   }
 
   void makeMove(int row, int col, Handshake handshake) {
-    if((board[row][col] != '' || gameOver)){
+    if ((board[row][col] != '' || gameOver)) {
       _cancelTimer();
       return;
     }
@@ -143,7 +148,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
   }
 
   void _cancelTimer() {
-     handshakeLock?.cancel();
+    handshakeLock?.cancel();
     handshakeLock = null;
   }
 
@@ -210,9 +215,8 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
             builder: (context) {
               return const GiveUpDialog();
             });
-        if(value==true){
-          widget.socket.add([OtherUserAction.giveUp.index]);
-          if(!mounted)return Future.value(false);
+        if (value == true) {
+          if (!mounted) return Future.value(false);
           Navigator.pop(context);
         }
         return Future.value(false);
@@ -249,7 +253,9 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                       final col = index % 3;
                       return GestureDetector(
                         onTap: () {
-                          if (currentPlayer != whoAmI || handshakeLock != null || gameOver) return;
+                          if (currentPlayer != whoAmI ||
+                              handshakeLock != null ||
+                              gameOver) return;
                           makeMove(row, col, Handshake.sendToOther);
                         },
                         child: Container(
@@ -281,7 +287,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
               if (gameOver)
                 ElevatedButton(
                   onPressed: () {
-                    startNewGame(fromInit: false,fromAnotherUser: false);
+                    startNewGame(fromInit: false, fromAnotherUser: false);
                   },
                   child: const Text('New Game'),
                 ),

@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:multiplayer_tictactoe/screens/connection_screen/tic_tac_toe.dart';
@@ -14,36 +15,76 @@ class ServerScreen extends StatefulWidget {
 class _ServerScreenState extends State<ServerScreen> {
   String? urlToConnect;
   ServerSocket? socket;
+  final portController = TextEditingController();
+  bool validPort = true;
+  bool _startingServer = true;
 
   @override
   void initState() {
     super.initState();
+    portController.text = "3000";
     // Dart server
     getUrl().then((value) async {
-      socket = await ServerSocket.bind(InternetAddress("0.0.0.0",type: InternetAddressType.IPv4), 3005);
-      socket?.listen((newClient) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => TicTacToeScreen(
-              socket: newClient,
-              isServer: true,
-            ),
+      await _startSocket();
+    });
+  }
+
+  bool _checkIsValid(String value) {
+    if (value.isEmpty) {
+      return false;
+    }
+
+    int? port = int.tryParse(value);
+    if (port == null || port < 1 || port > 65535) {
+      return false;
+    } else {
+      return true;
+    }
+  }
+
+  Future<void> _startSocket() async {
+    if (!validPort) {
+      log("Invalid Port to start the socket");
+      return;
+    }
+    await Future.delayed(Duration.zero, () {
+      _startingServer = true;
+      setState(() {});
+    });
+    await socket?.close();
+    log("Starting Socket");
+    socket = await ServerSocket.bind(
+        InternetAddress("0.0.0.0", type: InternetAddressType.IPv4),
+        int.parse(portController.text));
+    log("Socket Started");
+
+    setState(() {
+      _startingServer = false;
+    });
+    socket?.listen((newClient) async {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TicTacToeScreen(
+            socket: newClient,
+            isServer: true,
           ),
-        );
-      });
+        ),
+      );
+    }).onDone(() {
+      log("Previous Socket Closed");
     });
   }
 
   Future<void> getUrl() async {
     try {
       NetworkInfo().getWifiIP().then((value) {
-        urlToConnect =value;
+        urlToConnect = value;
         setState(() {});
       });
     } catch (e) {
       await Future.delayed(Duration.zero);
-      if(!mounted)return;
+      if (!mounted) return;
       final value = await showModalBottomSheet(
           context: context,
           builder: (context) {
@@ -56,7 +97,7 @@ class _ServerScreenState extends State<ServerScreen> {
                 decoration:
                     const InputDecoration(hintText: "Enter Your device Ip"),
                 onSubmitted: (value) {
-                  if(value.isEmpty)return;
+                  if (value.isEmpty) return;
                   Navigator.pop(context, value);
                 },
               ),
@@ -75,11 +116,47 @@ class _ServerScreenState extends State<ServerScreen> {
         ? MediaQuery.of(context).size.width * 0.75
         : 500.0;
     return Center(
-      child: urlToConnect == null
+      child: urlToConnect == null || _startingServer
           ? const CircularProgressIndicator()
-          : QrImageView(
-              data: urlToConnect ?? "",
-              size: size,
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Spacer(
+                      flex: 2,
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: portController,
+                        onChanged: (value) {
+                          validPort = _checkIsValid(value);
+                          _startSocket();
+                          setState(() {});
+                        },
+                        decoration:
+                            const InputDecoration(labelText: "Port Number"),
+                      ),
+                    ),
+                    const Spacer(
+                      flex: 2,
+                    ),
+                  ],
+                ),
+                const SizedBox(
+                  height: 20,
+                ),
+                if (validPort)
+                  QrImageView(
+                    data: "$urlToConnect--${portController.text}",
+                    size: size,
+                  )
+                else
+                  const Center(
+                    child: Text("Invalid Port"),
+                  ),
+              ],
             ),
     );
   }
@@ -87,6 +164,7 @@ class _ServerScreenState extends State<ServerScreen> {
   @override
   void dispose() {
     socket?.close();
+    portController.dispose();
     super.dispose();
   }
 }
