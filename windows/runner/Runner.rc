@@ -52,7 +52,7 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_APP_ICON            ICON                    "resources\\app_icon.ico"
+IDI_APP_ICON            ICON                    "resources\\icon.ico"
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "MultiPlayer TicTacToe A2" "\0"
+            VALUE "CompanyName", "com.a2" "\0"
+            VALUE "FileDescription", "MultiPlayerTicTacToeByA2" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "MultiPlayer TicTacToe A2" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2023 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "multiplayer_tictactoe.exe" "\0"
-            VALUE "ProductName", "MultiPlayer TicTacToe A2" "\0"
+            VALUE "InternalName", "MultiPlayerTicTacToeByA2" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2023 com.a2. All rights reserved." "\0"
+            VALUE "OriginalFilename", "MultiPlayerTicTacToeByA2.exe" "\0"
+            VALUE "ProductName", "MultiPlayerTicTacToeByA2" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
