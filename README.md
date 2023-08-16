@@ -19,4 +19,4 @@ So make sure to run the APK and review the code, and give me some feedback 😊.
 
 APK: [Touch Me!](https://drive.google.com/drive/u/0/folders/1j2jfecUFIdPj8l5yBlbCEIjkxHZEPqk6)
 
-LinkedIn Demonstration: [Touch Me!]([https://drive.google.com/file/d/1IdI5o11L8W3Rb6SLQdM9W5Sk0YXyMWGz/view?usp=drive_link](https://www.linkedin.com/posts/aaradhya-nepal-95006b247_flutter-flutterdeveloper-fluttercommunity-activity-7097454259369123840-_vAt?utm_source=share&utm_medium=member_desktop)https://www.linkedin.com/posts/aaradhya-nepal-95006b247_flutter-flutterdeveloper-fluttercommunity-activity-7097454259369123840-_vAt?utm_source=share&utm_medium=member_desktop)
+LinkedIn Demonstration: [Touch Me!](https://www.linkedin.com/posts/aaradhya-nepal-95006b247_flutter-flutterdeveloper-fluttercommunity-activity-7097454259369123840-_vAt?utm_source=share&utm_medium=member_desktop)
