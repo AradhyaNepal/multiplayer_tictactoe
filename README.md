@@ -1,5 +1,5 @@
 ## Credit:
-First I want to thank [OriginalRepo](https://github.com/qubeena07/MyWidgets/blob/main/lib/screens/tic_tac_toe_screen.dart)'s repo, from which I got the TicTacToe game code. The original game was single-user TicTacToe, from which I was inspired to make multi-user TicTacToe. The above repo contains many other exciting codings, so make sure to watch the repo, follow [qubeena07](https://github.com/qubeena07/), and give the repo a star.
+First I want to thank [OriginalRepo](https://github.com/qubeena07/MyWidgets/blob/main/lib/screens/tic_tac_toe_screen.dart), from which I got the TicTacToe game code. The original game was single-user TicTacToe, from which I was inspired to make multi-user TicTacToe. The above repo contains many other exciting codings, so make sure to watch the repo, follow [qubeena07](https://github.com/qubeena07/), and give the repo a star.
 
 # Multiplayer TicTacToe
 Flutter + Local Websocket + ❤️ = Multiplayer TicTacToe Game for Android and Windows
