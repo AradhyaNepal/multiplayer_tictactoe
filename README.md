@@ -15,6 +15,8 @@ Not only that, while playing the game, to ensure that the data don't get lost in
 
 So make sure to run the APK and review the code, and give me some feedback 😊.
 
+**Make sure that both devices are connected to the same Wifi to make the connection work.**
+
 APK: [Touch Me!](https://drive.google.com/drive/u/0/folders/1j2jfecUFIdPj8l5yBlbCEIjkxHZEPqk6)
 
 Video Demonstration: [Touch Me!](https://drive.google.com/file/d/1IdI5o11L8W3Rb6SLQdM9W5Sk0YXyMWGz/view?usp=drive_link)
